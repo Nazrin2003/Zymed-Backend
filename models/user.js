@@ -1,4 +1,4 @@
-const Mongoose = require("mongoose")
+const Mongoose = require("mongoose");
 
 const userSchema = Mongoose.Schema({
   name: { type: String, required: true },
@@ -6,9 +6,8 @@ const userSchema = Mongoose.Schema({
   phone: { type: String },
   password: { type: String, required: true },
   role: { type: String, enum: ["customer", "pharmacist", "admin"], default: "customer" },
-  address: { type: String }
-}, { timestamps: true })
+  address: { type: String },
+}, { timestamps: true });
 
-
-var userModel = Mongoose.model("users", userSchema)
-module.exports = userModel
+var userModel = Mongoose.model("users", userSchema);
+module.exports = userModel;

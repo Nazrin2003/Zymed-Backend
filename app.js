@@ -1,28 +1,24 @@
-// 📦 Import Dependencies
 const Express = require("express");
 const Mongoose = require("mongoose");
 const Bcrypt = require("bcrypt");
 const Cors = require("cors");
 const jwt = require("jsonwebtoken");
 
-// 📁 Import Models
 const userModel = require("./models/user");
 const medicineModel = require("./models/medicine");
 
-// 🚀 Initialize Express App
 const app = Express();
 app.use(Express.json());
 app.use(Cors());
 
-// 🌐 Connect to MongoDB
 Mongoose.connect("mongodb+srv://Nazrin2003:nazrin2003@cluster0.62ddoa0.mongodb.net/zymedDb?retryWrites=true&w=majority&appName=Cluster0")
   .then(() => console.log("MongoDB Connected"))
   .catch(err => console.log(err));
 
 
-// 🧑‍💻 User Authentication Routes
+//  User Authentication Routes
 
-// 🔐 Sign Up
+//  Sign Up
 app.post("/signup", async (req, res) => {
   try {
     const input = req.body;
@@ -43,7 +39,7 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-// 🔓 Sign In
+//  Sign In
 app.post("/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -76,7 +72,7 @@ app.post("/signin", async (req, res) => {
   }
 });
 
-// 👥 Get All Users
+//  Get All Users
 app.get("/users", async (req, res) => {
   try {
     const users = await userModel.find();
@@ -87,9 +83,9 @@ app.get("/users", async (req, res) => {
 });
 
 
-// 💊 Medicine Management Routes
+//  Medicine Management Routes
 
-// ➕ Add Medicine
+//  Add Medicine
 app.post("/medicines", async (req, res) => {
   try {
     const medicine = new medicineModel(req.body);
@@ -100,7 +96,7 @@ app.post("/medicines", async (req, res) => {
   }
 });
 
-// 📝 Update Medicine
+//  Update Medicine
 app.put("/medicines/:id", async (req, res) => {
   try {
     const updated = await medicineModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -111,7 +107,7 @@ app.put("/medicines/:id", async (req, res) => {
   }
 });
 
-// ❌ Delete Medicine
+//  Delete Medicine
 app.delete("/medicines/:id", async (req, res) => {
   try {
     const deleted = await medicineModel.findByIdAndDelete(req.params.id);
@@ -122,7 +118,7 @@ app.delete("/medicines/:id", async (req, res) => {
   }
 });
 
-// 📦 Get All Medicines
+//  Get All Medicines
 app.get("/medicines", async (req, res) => {
   try {
     const medicines = await medicineModel.find();
@@ -133,7 +129,7 @@ app.get("/medicines", async (req, res) => {
 });
 
 
-// 🖥️ Start Server
+//  Start Server
 app.listen(3030, () => {
   console.log("Server started on port 3030");
 });

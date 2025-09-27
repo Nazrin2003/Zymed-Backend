@@ -11,6 +11,7 @@ const medicineSchema = new mongoose.Schema({
     type: Boolean,
     default: false 
   }
+  
 });
 
 module.exports = mongoose.model('Medicine', medicineSchema);

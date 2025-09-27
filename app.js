@@ -6,6 +6,10 @@ const jwt = require("jsonwebtoken");
 
 const userModel = require("./models/user");
 const medicineModel = require("./models/medicine");
+const cartModel = require("./models/cart");
+const orderModel = require("./models/order");
+
+
 
 const app = Express();
 app.use(Express.json());
@@ -72,6 +76,8 @@ app.post("/signin", async (req, res) => {
   }
 });
 
+
+
 //  Get All Users
 app.get("/users", async (req, res) => {
   try {
@@ -123,6 +129,131 @@ app.get("/medicines", async (req, res) => {
   try {
     const medicines = await medicineModel.find();
     res.json(medicines);
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
+
+
+//Orders
+
+//get order
+app.get("/orders", async (req, res) => {
+  try {
+    const orders = await orderModel.find().populate("userId").populate("items.medicineId");
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
+//update order(pharmacist)
+app.put("/orders/:id/status", async (req, res) => {
+  try {
+    const updated = await orderModel.findByIdAndUpdate(
+      req.params.id,
+      { status: req.body.status },
+      { new: true }
+    );
+    res.json({ status: "Updated", order: updated });
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
+
+
+//Cart
+
+//get cart
+app.get("/cart/:userId", async (req, res) => {
+  try {
+    const cart = await cartModel.findOne({ userId: req.params.userId }).populate("items.medicineId");
+    res.json(cart);
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
+
+//update & delete
+app.put("/cart/:userId", async (req, res) => {
+  try {
+    const { medicineId, quantity } = req.body;
+    const cart = await cartModel.findOne({ userId: req.params.userId });
+
+    if (!cart) return res.status(404).json({ status: "Cart not found" });
+
+    const itemIndex = cart.items.findIndex(i => i.medicineId.toString() === medicineId);
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ status: "Medicine not found in cart" });
+    }
+
+    if (quantity > 0) {
+      // Update quantity
+      cart.items[itemIndex].quantity = quantity;
+    } else {
+      // Remove item from cart
+      cart.items.splice(itemIndex, 1);
+    }
+
+    await cart.save();
+    res.json({ status: "Cart updated", cart });
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
+
+//confirm cart
+app.post("/orders/confirm/:userId", async (req, res) => {
+  try {
+    const cart = await cartModel.findOne({ userId: req.params.userId }).populate("items.medicineId");
+
+    const items = cart.items.map(item => ({
+      medicineId: item.medicineId._id,
+      quantity: item.quantity,
+      price: item.medicineId.price
+    }));
+
+    const totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    const newOrder = new orderModel({
+      userId: req.params.userId,
+      items,
+      totalAmount
+    });
+
+    await newOrder.save();
+    await cartModel.deleteOne({ userId: req.params.userId });
+
+    res.json({ status: "Order Confirmed", order: newOrder });
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
+
+app.post("/cart/:userId", async (req, res) => {
+  try {
+    const { medicineId, quantity } = req.body;
+
+    let cart = await cartModel.findOne({ userId: req.params.userId });
+
+    if (!cart) {
+      // Create new cart
+      cart = new cartModel({
+        userId: req.params.userId,
+        items: [{ medicineId, quantity }]
+      });
+    } else {
+      // Update existing cart
+      const item = cart.items.find(i => i.medicineId.toString() === medicineId);
+      if (item) {
+        item.quantity += quantity;
+      } else {
+        cart.items.push({ medicineId, quantity });
+      }
+    }
+
+    await cart.save();
+    res.json({ status: "Item added to cart", cart });
   } catch (err) {
     res.status(500).json({ status: "Error", error: err.message });
   }

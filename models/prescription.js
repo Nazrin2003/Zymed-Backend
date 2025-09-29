@@ -1,11 +1,11 @@
-const Mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
-const prescriptionSchema = Mongoose.Schema({
-  userId: { type: Mongoose.Schema.Types.ObjectId, ref: "users", required: true },
-  fileUrl: { type: String, required: true },   // path to uploaded prescription
+const prescriptionSchema = mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "users", required: true },
+  fileUrl: { type: String, required: true },
   status: { type: String, enum: ["pending", "verified", "rejected"], default: "pending" },
-  uploadedAt: { type: Date, default: Date.now }
+  uploadedAt: { type: Date, default: Date.now },
+  notes: { type: String }
 }, { timestamps: true });
 
-var prescriptionModel = Mongoose.model("prescriptions", prescriptionSchema);
-module.exports = prescriptionModel;
+module.exports = mongoose.model("prescriptions", prescriptionSchema);

@@ -271,16 +271,24 @@ app.post("/prescriptions/forward/:prescriptionId", async (req, res) => {
     const reply = new replyModel({
       prescriptionId: req.params.prescriptionId,
       pharmacistId,
-      medicines,
+      medicines,  // array: [{ medicineId, quantity }]
       message
     });
 
     await reply.save();
+
+    // update prescription status → verified
+    await prescriptionModel.findByIdAndUpdate(
+      req.params.prescriptionId,
+      { status: "verified" }
+    );
+
     res.json({ status: "Forwarded", reply });
   } catch (err) {
     res.status(500).json({ status: "Error", error: err.message });
   }
 });
+
 
 app.get("/prescriptions/:id/reply", async (req, res) => {
   try {

@@ -5,7 +5,7 @@ const replySchema = mongoose.Schema({
   pharmacistId: { type: mongoose.Schema.Types.ObjectId, ref: "users", required: true },
   medicines: [
     {
-      medicineId: { type: mongoose.Schema.Types.ObjectId, ref: "medicines", required: true },
+      medicineId: { type: mongoose.Schema.Types.ObjectId, ref: "Medicine", required: true },
       price: Number,
       quantity: Number
     }

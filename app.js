@@ -294,13 +294,19 @@ app.get("/prescriptions/:id/reply", async (req, res) => {
   try {
     const reply = await replyModel
       .findOne({ prescriptionId: req.params.id })
-      .populate("medicines.medicineId")
+      .populate({
+        path: "medicines.medicineId",
+        model: "Medicine" // ✅ explicitly tell Mongoose to use this model
+      })
       .populate("pharmacistId", "name email");
+
     res.json(reply);
   } catch (err) {
     res.status(500).json({ status: "Error", error: err.message });
   }
 });
+
+
 
 
 app.listen(3030, () => {

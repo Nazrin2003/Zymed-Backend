@@ -10,8 +10,8 @@ const medicineSchema = new mongoose.Schema({
   prescriptionRequired: {
     type: Boolean,
     default: false 
-  }
-  
+  },
+  imageUrl: String // ✅ new field for image path
 });
 
 module.exports = mongoose.model('Medicine', medicineSchema);

@@ -5,6 +5,7 @@ const Cors = require("cors");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
 const userModel = require("./models/user");
 const medicineModel = require("./models/medicine");
@@ -29,7 +30,6 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
-
 
 // 🔐 User Authentication
 app.post("/signup", async (req, res) => {
@@ -77,7 +77,6 @@ app.get("/users", async (req, res) => {
   }
 });
 
-
 // 💊 Medicine Management
 app.get("/medicines", async (req, res) => {
   try {
@@ -88,19 +87,25 @@ app.get("/medicines", async (req, res) => {
   }
 });
 
-app.post("/medicines", async (req, res) => {
-  try {
-    const medicine = new medicineModel(req.body);
-    await medicine.save();
-    res.json({ status: "Success", medicine });
-  } catch (err) {
-    res.status(500).json({ status: "Error", error: err.message });
-  }
+app.post("/medicines", upload.single("image"), async (req, res) => {
+
+  const medicine = new medicineModel({
+    ...req.body,
+    imageUrl: req.file ? req.file.path : null
+  });
+
+  await medicine.save();
+  res.json({ status: "Success", medicine });
 });
 
-app.put("/medicines/:id", async (req, res) => {
+
+app.put("/medicines/:id", upload.single("image"), async (req, res) => {
   try {
-    const updated = await medicineModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = {
+      ...req.body,
+      ...(req.file && { imageUrl: req.file.path })
+    };
+    const updated = await medicineModel.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!updated) return res.status(404).json({ status: "Medicine not found" });
     res.json({ status: "Updated", medicine: updated });
   } catch (err) {
@@ -110,13 +115,23 @@ app.put("/medicines/:id", async (req, res) => {
 
 app.delete("/medicines/:id", async (req, res) => {
   try {
-    const deleted = await medicineModel.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ status: "Medicine not found" });
-    res.json({ status: "Deleted", medicine: deleted });
+    const medicine = await medicineModel.findById(req.params.id);
+    if (!medicine) return res.status(404).json({ status: "Medicine not found" });
+
+    if (medicine.imageUrl) {
+      fs.unlink(medicine.imageUrl, (err) => {
+        if (err) console.error("Failed to delete image:", err);
+      });
+    }
+
+    await medicineModel.findByIdAndDelete(req.params.id);
+    res.json({ status: "Deleted", medicine });
   } catch (err) {
     res.status(500).json({ status: "Error", error: err.message });
   }
 });
+
+
 
 
 // 🛒 Cart & Orders
@@ -205,6 +220,8 @@ app.put("/orders/:id/status", async (req, res) => {
     res.status(500).json({ status: "Error", error: err.message });
   }
 });
+
+
 
 
 // 📄 Prescription Upload & View

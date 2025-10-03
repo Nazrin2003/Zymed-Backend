@@ -6,7 +6,6 @@ const orderSchema = mongoose.Schema({
   username: { type: String, required: true },
   address: { type: String, required: true },
   phone: { type: String, required: true },
-  notes: { type: String }, // optional
 
   items: [
     {

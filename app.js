@@ -144,26 +144,6 @@ app.get("/cart/:userId", async (req, res) => {
   }
 });
 
-app.post("/cart/:userId", async (req, res) => {
-  try {
-    const { medicineId, quantity } = req.body;
-    let cart = await cartModel.findOne({ userId: req.params.userId });
-
-    if (!cart) {
-      cart = new cartModel({ userId: req.params.userId, items: [{ medicineId, quantity }] });
-    } else {
-      const item = cart.items.find(i => i.medicineId.toString() === medicineId);
-      if (item) item.quantity += quantity;
-      else cart.items.push({ medicineId, quantity });
-    }
-
-    await cart.save();
-    res.json({ status: "Item added to cart", cart });
-  } catch (err) {
-    res.status(500).json({ status: "Error", error: err.message });
-  }
-});
-
 app.put("/cart/:userId", async (req, res) => {
   try {
     const { medicineId, quantity } = req.body;
@@ -173,8 +153,11 @@ app.put("/cart/:userId", async (req, res) => {
     const itemIndex = cart.items.findIndex(i => i.medicineId.toString() === medicineId);
     if (itemIndex === -1) return res.status(404).json({ status: "Medicine not found in cart" });
 
-    if (quantity > 0) cart.items[itemIndex].quantity = quantity;
-    else cart.items.splice(itemIndex, 1);
+    if (quantity > 0) {
+      cart.items[itemIndex].quantity = quantity;
+    } else {
+      cart.items.splice(itemIndex, 1); // ✅ Remove item
+    }
 
     await cart.save();
     res.json({ status: "Cart updated", cart });
@@ -182,44 +165,161 @@ app.put("/cart/:userId", async (req, res) => {
     res.status(500).json({ status: "Error", error: err.message });
   }
 });
+app.post("/cart/:userId", async (req, res) => {
+  try {
+    const { medicineId, quantity } = req.body;
+    let cart = await cartModel.findOne({ userId: req.params.userId });
 
+    if (!cart) {
+      cart = new cartModel({
+        userId: req.params.userId,
+        items: [{ medicineId, quantity }]
+      });
+    } else {
+      const itemIndex = cart.items.findIndex(i => i.medicineId.toString() === medicineId);
+      if (itemIndex !== -1) {
+        cart.items[itemIndex].quantity += quantity;
+      } else {
+        cart.items.push({ medicineId, quantity });
+      }
+    }
+
+    await cart.save();
+    res.json({ status: "Added to cart", cart });
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
+
+
+// ✅ Confirm Order and Pass to Checkout
 app.post("/orders/confirm/:userId", async (req, res) => {
   try {
     const cart = await cartModel.findOne({ userId: req.params.userId }).populate("items.medicineId");
+    const user = await userModel.findById(req.params.userId);
+
+    if (!cart || !user) return res.status(404).json({ status: "Cart or user not found" });
+
     const items = cart.items.map(item => ({
       medicineId: item.medicineId._id,
+      name: item.medicineId.name,
+      price: item.medicineId.price,
       quantity: item.quantity,
-      price: item.medicineId.price
+      imageUrl: item.medicineId.imageUrl
     }));
+
     const totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    const newOrder = new orderModel({ userId: req.params.userId, items, totalAmount });
-    await newOrder.save();
-    await cartModel.deleteOne({ userId: req.params.userId });
-
-    res.json({ status: "Order Confirmed", order: newOrder });
+    res.json({
+      status: "Ready for checkout",
+      user: {
+        name: user.name,
+        email: user.email,
+        id: user._id
+      },
+      items,
+      totalAmount
+    });
   } catch (err) {
     res.status(500).json({ status: "Error", error: err.message });
   }
 });
 
-app.get("/orders", async (req, res) => {
+app.post("/orders/place", async (req, res) => {
   try {
-    const orders = await orderModel.find().populate("userId").populate("items.medicineId");
-    res.json(orders);
+    const { userId, address, phone, items, totalAmount } = req.body;
+    const user = await userModel.findById(userId);
+    if (!user) return res.status(404).json({ status: "User not found" });
+
+    const order = new orderModel({
+      userId,
+      username: user.name,
+      address,
+      phone,
+      items: items.map((item) => ({
+        medicineId: item.medicineId,
+        quantity: item.quantity,
+        price: item.price
+      })),
+      totalAmount
+    });
+
+    await order.save();
+    await cartModel.deleteOne({ userId }); // ✅ Clear cart after placing order
+
+    res.json({ status: "Order placed", order });
   } catch (err) {
     res.status(500).json({ status: "Error", error: err.message });
   }
 });
+app.post("/orders/place", async (req, res) => {
+  try {
+    const { userId, address, phone, items, totalAmount } = req.body;
+    const user = await userModel.findById(userId);
+    if (!user) return res.status(404).json({ status: "User not found" });
 
+    const order = new orderModel({
+      userId,
+      username: user.name,
+      address,
+      phone,
+      items: items.map((item) => ({
+        medicineId: item.medicineId,
+        quantity: item.quantity,
+        price: item.price
+      })),
+      totalAmount
+    });
+
+    await order.save();
+    await cartModel.deleteOne({ userId }); // ✅ Clear cart after placing order
+
+    res.json({ status: "Order placed", order });
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
 app.put("/orders/:id/status", async (req, res) => {
   try {
-    const updated = await orderModel.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
-    res.json({ status: "Updated", order: updated });
+    const order = await orderModel.findById(req.params.id);
+    if (!order) return res.status(404).json({ status: "Order not found" });
+
+    const newStatus = req.body.status;
+    order.status = newStatus;
+    await order.save();
+
+    // ✅ Reduce medicine quantity only when status becomes "confirmed"
+    if (newStatus === "confirmed") {
+      for (const item of order.items) {
+        await medicineModel.findByIdAndUpdate(item.medicineId, {
+          $inc: { quantity: -item.quantity }
+        });
+      }
+    }
+
+    res.json({ status: "Order updated", order });
   } catch (err) {
     res.status(500).json({ status: "Error", error: err.message });
   }
 });
+app.get("/orders", async (req, res) => {
+  const orders = await orderModel
+    .find()
+    .populate({
+      path: "items.medicineId",
+      model: "Medicine" // ✅ match your model name exactly
+    });
+  res.json(orders);
+});
+app.get("/orders/pending/count", async (req, res) => {
+  try {
+    const count = await orderModel.countDocuments({ status: "pending" });
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ status: "Error", error: err.message });
+  }
+});
+
 
 
 

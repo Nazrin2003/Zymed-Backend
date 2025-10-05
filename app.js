@@ -13,11 +13,15 @@ const cartModel = require("./models/cart");
 const orderModel = require("./models/order");
 const prescriptionModel = require("./models/prescription");
 const replyModel = require("./models/prescriptionReply");
+const { format } = require("date-fns");
 
 const app = Express();
 app.use(Express.json());
 app.use(Cors());
 app.use("/uploads", Express.static("uploads"));
+
+require("dotenv").config();
+
 
 // MongoDB Connection
 Mongoose.connect("mongodb+srv://Nazrin2003:nazrin2003@cluster0.62ddoa0.mongodb.net/zymedDb?retryWrites=true&w=majority&appName=Cluster0")
@@ -30,6 +34,86 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
+
+
+//Node mailer
+
+const cron = require("node-cron");
+const nodemailer = require("nodemailer");
+// 🔁 Runs every day at 9 AM
+cron.schedule("0 9 * * *", async () => {
+  try {
+    const medicines = await medicineModel.find();
+    const today = new Date();
+
+    const expired = medicines.filter(m => new Date(m.expiryDate) < today);
+    const outOfStock = medicines.filter(m => m.quantity === 0);
+
+    if (expired.length === 0 && outOfStock.length === 0) return;
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+
+    const htmlContent = `
+  <div style="font-family: 'Segoe UI', sans-serif; background-color: #f3f4f6; padding: 30px;">
+    <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+      
+      <!-- Header -->
+      <div style="background: linear-gradient(90deg, #00769b, #00a3c4); padding: 25px; text-align: center;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Zymed</h1>
+        <h2 style="color: #e0f7fa; margin: 0; font-size: 18px;">Pharmacy Alerts</h2>
+      </div>
+
+      <!-- Body -->
+      <div style="padding: 25px;">
+        <p style="font-size: 16px; color: #374151;">Hello Pharmacist,</p>
+        <p style="font-size: 15px; color: #4b5563;">Here are your latest inventory alerts:</p>
+
+        ${expired.length > 0 ? `
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <h4 style="color: #dc2626; font-size: 16px;">💀 Expired Medicines</h4>
+          <ul style="padding-left: 20px; color: #6b7280;">${expired.map(m => `<li>${m.name} (Expired: ${format(new Date(m.expiryDate), "dd MMM yyyy")})</li>`).join("")}</ul>
+        ` : "<p style='color: #10b981;'>✅ No expired medicines today.</p>"}
+
+        ${outOfStock.length > 0 ? `
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <h4 style="color: #f59e0b; font-size: 16px;">📦 Out of Stock</h4>
+          <ul style="padding-left: 20px; color: #6b7280;">${outOfStock.map(m => `<li>${m.name}</li>`).join("")}</ul>
+        ` : "<p style='color: #10b981;'>✅ All medicines are in stock.</p>"}
+
+        <div style="margin-top: 30px; text-align: center;">
+          <a href="http://localhost:3030" style="display: inline-block; background-color: #00769b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Dashboard</a>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #6b7280;">This is an automated alert from Zymed Pharmacy System.</p>
+      </div>
+    </div>
+  </div>
+`;
+
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.ALERT_RECIPIENT,
+      subject: "⚠️ Daily Pharmacy Notifications",
+      html: htmlContent
+    });
+
+
+    console.log("Email sent to pharmacist.");
+  } catch (err) {
+    console.error("Failed to send daily alert:", err);
+  }
+});
+
+
+
 
 // 🔐 User Authentication
 app.post("/signup", async (req, res) => {

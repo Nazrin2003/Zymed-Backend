@@ -12,6 +12,7 @@ const medicineModel = require("./models/medicine");
 const cartModel = require("./models/cart");
 const orderModel = require("./models/order");
 const prescriptionModel = require("./models/prescription");
+const subscriptionModel = require("./models/subscription");
 const replyModel = require("./models/prescriptionReply");
 const { format } = require("date-fns");
 
@@ -61,41 +62,54 @@ cron.schedule("0 9 * * *", async () => {
 
 
     const htmlContent = `
-  <div style="font-family: 'Segoe UI', sans-serif; background-color: #f3f4f6; padding: 30px;">
-    <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+  <div style="font-family: 'Poppins', 'Segoe UI', sans-serif; background-color: #f3f4f6; padding: 30px;">
+    <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.08);">
       
       <!-- Header -->
-      <div style="background: linear-gradient(90deg, #00769b, #00a3c4); padding: 25px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Zymed</h1>
-        <h2 style="color: #e0f7fa; margin: 0; font-size: 18px;">Pharmacy Alerts</h2>
+      <div style="background: linear-gradient(90deg, #00769b, #00a3c4); padding: 30px; text-align: center;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 30px; letter-spacing: 1px;">🩺 Zymed</h1>
+        <p style="color: #e0f7fa; margin: 5px 0 0; font-size: 16px;">Daily Pharmacy Inventory Alerts</p>
       </div>
 
       <!-- Body -->
-      <div style="padding: 25px;">
-        <p style="font-size: 16px; color: #374151;">Hello Pharmacist,</p>
-        <p style="font-size: 15px; color: #4b5563;">Here are your latest inventory alerts:</p>
+      <div style="padding: 30px;">
+        <p style="font-size: 17px; color: #1f2937; margin-bottom: 10px;">👋 Hello Pharmacist,</p>
+        <p style="font-size: 15px; color: #374151; margin-bottom: 20px;">
+          Here's a quick summary of your inventory status for today:
+        </p>
 
         ${expired.length > 0 ? `
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-          <h4 style="color: #dc2626; font-size: 16px;">💀 Expired Medicines</h4>
-          <ul style="padding-left: 20px; color: #6b7280;">${expired.map(m => `<li>${m.name} (Expired: ${format(new Date(m.expiryDate), "dd MMM yyyy")})</li>`).join("")}</ul>
-        ` : "<p style='color: #10b981;'>✅ No expired medicines today.</p>"}
+          <div style="margin-bottom: 25px;">
+            <h3 style="color: #dc2626; font-size: 17px; margin-bottom: 10px;">💀 Expired Medicines</h3>
+            <ul style="padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+              ${expired.map(m => `<li>${m.name} <span style="color: #9ca3af;">(Expired: ${format(new Date(m.expiryDate), "dd MMM yyyy")})</span></li>`).join("")}
+            </ul>
+          </div>
+        ` : "<p style='color: #10b981; font-size: 15px;'>✅ No expired medicines today.</p>"}
 
         ${outOfStock.length > 0 ? `
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-          <h4 style="color: #f59e0b; font-size: 16px;">📦 Out of Stock</h4>
-          <ul style="padding-left: 20px; color: #6b7280;">${outOfStock.map(m => `<li>${m.name}</li>`).join("")}</ul>
-        ` : "<p style='color: #10b981;'>✅ All medicines are in stock.</p>"}
+          <div style="margin-bottom: 25px;">
+            <h3 style="color: #f59e0b; font-size: 17px; margin-bottom: 10px;">📦 Out of Stock</h3>
+            <ul style="padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+              ${outOfStock.map(m => `<li>${m.name}</li>`).join("")}
+            </ul>
+          </div>
+        ` : "<p style='color: #10b981; font-size: 15px;'>✅ All medicines are in stock.</p>"}
 
         <div style="margin-top: 30px; text-align: center;">
-          <a href="http://localhost:3030" style="display: inline-block; background-color: #00769b; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Dashboard</a>
+          <a href="http://localhost:3030" style="display: inline-block; background-color: #00769b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            🔍 View Dashboard
+          </a>
         </div>
 
-        <p style="margin-top: 30px; font-size: 14px; color: #6b7280;">This is an automated alert from Zymed Pharmacy System.</p>
+        <p style="margin-top: 35px; font-size: 13px; color: #6b7280; text-align: center;">
+          This is an automated alert from <strong>Zymed Pharmacy System</strong>. Please do not reply to this email.
+        </p>
       </div>
     </div>
   </div>
 `;
+
 
 
     await transporter.sendMail({
@@ -109,6 +123,99 @@ cron.schedule("0 9 * * *", async () => {
     console.log("Email sent to pharmacist.");
   } catch (err) {
     console.error("Failed to send daily alert:", err);
+  }
+});
+
+//Subscription
+app.post("/subscribe", async (req, res) => {
+  try {
+    const { userId, medicineId, notifyDate } = req.body;
+
+    const subscription = new subscriptionModel({
+      userId,
+      medicineId,
+      notifyDate: new Date(notifyDate)
+    });
+
+    await subscription.save();
+    res.status(200).send("Subscription saved.");
+  } catch (err) {
+    console.error("Subscription Error:", err);
+    res.status(500).send("Failed to save subscription.");
+  }
+});
+
+cron.schedule("0 9 * * *", async () => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+
+    const subscriptions = await subscriptionModel
+      .find({ notifyDate: today })
+      .populate({ path: "userId", model: "users" }) // ✅ match your model name
+      .populate({ path: "medicineId", model: "Medicine" });
+
+    if (subscriptions.length === 0) return;
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    for (const sub of subscriptions) {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: sub.userId.email,
+        subject: `⏰ Refill Reminder: ${sub.medicineId.name}`,
+        html: `
+      <div style="font-family: 'Segoe UI', sans-serif; background-color: #f3f4f6; padding: 30px;">
+        <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+          <div style="background-color: #00769b; padding: 20px; text-align: center;">
+            <h2 style="color: #ffffff; margin: 0; font-size: 24px;">
+              💊 Zymed Refill Reminder
+            </h2>
+          </div>
+          <div style="padding: 25px;">
+            <p style="font-size: 16px; color: #1f2937;">Hello <strong>${sub.userId.name}</strong>,</p>
+            <p style="font-size: 15px; color: #374151;">
+              🔔 Your subscription for <strong style="color: #00769b;">${sub.medicineId.name}</strong> is due for refill <span style="color: #dc2626;">today</span>.
+            </p>
+            <p style="font-size: 15px; color: #374151;">
+              🛒 Please visit your dashboard to reorder and stay on track with your medication.
+            </p>
+            <div style="margin-top: 30px; text-align: center;">
+              <a href="http://localhost:3000/dashboard" style="background-color: #10b981; color: #ffffff; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
+                🔁 Reorder Now
+              </a>
+            </div>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
+            <p style="font-size: 12px; color: #6b7280; text-align: center;">
+              This is an automated alert from <strong>Zymed Pharmacy System</strong>. Please do not reply to this email.
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+      });
+    }
+
+    console.log("📧 Refill reminders sent.");
+  } catch (err) {
+    console.error("❌ Failed to send refill reminders:", err);
+  }
+});
+
+app.get("/subscriptions/:userId", async (req, res) => {
+  try {
+    const subscriptions = await subscriptionModel
+      .find({ userId: req.params.userId })
+      .populate({ path: "medicineId", model: "Medicine" }); // ✅ match capital 'M'
+    res.json(subscriptions);
+  } catch (err) {
+    console.error("❌ Subscription fetch error:", err);
+    res.status(500).send("Failed to fetch subscriptions.");
   }
 });
 

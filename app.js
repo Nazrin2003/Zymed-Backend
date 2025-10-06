@@ -382,6 +382,23 @@ app.post("/cart/:userId", async (req, res) => {
   }
 });
 
+app.get("/orders/:userId", async (req, res) => {
+  try {
+    const orders = await orderModel
+      .find({ userId: req.params.userId })
+      .populate({
+        path: "items.medicineId",
+        model: "Medicine" // ✅ match your model name exactly
+      });
+    res.json(orders);
+  } catch (err) {
+    res.status(500).send("Failed to fetch orders.");
+  }
+});
+
+
+
+
 
 // ✅ Confirm Order and Pass to Checkout
 app.post("/orders/confirm/:userId", async (req, res) => {

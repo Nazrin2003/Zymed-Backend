@@ -38,7 +38,7 @@ const upload = multer({ storage });
 
 
 //Node mailer
-
+//Pharmacist notification
 const cron = require("node-cron");
 const nodemailer = require("nodemailer");
 // 🔁 Runs every day at 9 AM
@@ -219,6 +219,18 @@ app.get("/subscriptions/:userId", async (req, res) => {
   }
 });
 
+// Update subscription
+app.put("/subscribe/:id", async (req, res) => {
+  const { notifyDate } = req.body;
+  await subscriptionModel.findByIdAndUpdate(req.params.id, { notifyDate });
+  res.json({ status: "Updated" });
+});
+
+// Delete subscription
+app.delete("/subscribe/:id", async (req, res) => {
+  await subscriptionModel.findByIdAndDelete(req.params.id);
+  res.json({ status: "Deleted" });
+});
 
 
 

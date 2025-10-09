@@ -11,7 +11,7 @@ const medicineSchema = new mongoose.Schema({
     type: Boolean,
     default: false 
   },
-  imageUrl: String // ✅ new field for image path
+  imageUrl: String 
 });
 
 module.exports = mongoose.model('Medicine', medicineSchema);

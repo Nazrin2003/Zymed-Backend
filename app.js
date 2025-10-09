@@ -359,7 +359,7 @@ app.put("/cart/:userId", async (req, res) => {
     if (quantity > 0) {
       cart.items[itemIndex].quantity = quantity;
     } else {
-      cart.items.splice(itemIndex, 1); // ✅ Remove item
+      cart.items.splice(itemIndex, 1); 
     }
 
     await cart.save();
@@ -400,7 +400,7 @@ app.get("/orders/:userId", async (req, res) => {
       .find({ userId: req.params.userId })
       .populate({
         path: "items.medicineId",
-        model: "Medicine" // ✅ match your model name exactly
+        model: "Medicine" 
       });
     res.json(orders);
   } catch (err) {
@@ -633,7 +633,7 @@ app.get("/prescriptions/:id/reply", async (req, res) => {
       .findOne({ prescriptionId: req.params.id })
       .populate({
         path: "medicines.medicineId",
-        model: "Medicine" // ✅ explicitly tell Mongoose to use this model
+        model: "Medicine" 
       })
       .populate("pharmacistId", "name email");
 
